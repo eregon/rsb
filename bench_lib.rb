@@ -420,9 +420,12 @@ module BenchLib
     FRAMEWORKS = [ :rack, :rails ]
     APP_SERVERS = [ :webrick, :puma, :thin, :unicorn, :passenger ]
 
-    def options_by_framework_and_server(framework, server, processes: 1, threads: 1)
+    def options_by_framework_and_server(framework, server, processes: nil, threads: nil)
       raise "No such framework as #{framework.inspect} (only :rails and :rack)!" unless FRAMEWORKS.include?(framework)
       raise "No such app server as #{server.inspect} (options: #{APP_SERVERS.inspect})!" unless APP_SERVERS.include?(server)
+
+      threads ||= (ENV["RSB_THREADS"] || 1)
+      processes ||= (ENV["RSB_PROCESSES"] || 1)
 
       # This is okay (only) because we've already validated that
       # framework and server are one of a short list of known items.
