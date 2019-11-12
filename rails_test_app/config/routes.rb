@@ -13,6 +13,8 @@ Rails.application.routes.draw do
   get '/mandelbrot' => 'simple_bench#mandelbrot'
   get '/process_mem' => 'simple_bench#process_mem'
 
+  resources :results
+
   # The priority is based upon order of creation: first created -> highest priority.
   # See how all your routes lay out with "rake routes".
 
