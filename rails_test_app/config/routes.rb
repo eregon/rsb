@@ -11,6 +11,8 @@ Rails.application.routes.draw do
   get '/delay' => 'simple_bench#delay'
   get '/mandelbrot' => 'simple_bench#mandelbrot'
 
+  resources :results
+
   # The priority is based upon order of creation: first created -> highest priority.
   # See how all your routes lay out with "rake routes".
 
