@@ -107,9 +107,16 @@ INPUT_FILES.each do |f|
     raise "Unrecognized data version #{d["version"].inspect} in JSON file #{f.inspect}!"
   end
 
-  latencies = run_length_array_to_simple_array d["requests"]["benchmark"]["latencies"]
-  req_rates = run_length_array_to_simple_array d["requests"]["benchmark"]["req_per_sec"]
-  errors = d["requests"]["benchmark"]["errors"]
+  # Check for multiple benchmark iterations.
+  if d["requests"]["benchmark"].include?("latencies")
+    benchmark_data = d["requests"]["benchmark"]
+  else
+    benchmark_data = d["requests"]["benchmark"]["1"]
+  end
+
+  latencies = run_length_array_to_simple_array benchmark_data["latencies"]
+  req_rates = run_length_array_to_simple_array benchmark_data["req_per_sec"]
+  errors = benchmark_data["errors"]
 
   if errors.values.any? { |e| e > 0 }
     errors_in_file = errors.values.inject(0, &:+)
