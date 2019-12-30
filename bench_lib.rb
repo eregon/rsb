@@ -26,6 +26,7 @@ module BenchLib
 
       warmup_seconds: 5,
       benchmark_seconds: 180,
+      benchmark_iterations: 1,
 
       # Runner Config
       before_worker_cmd: "bundle install",
@@ -150,9 +151,9 @@ module BenchLib
 
       kill.call(:SIGINT)
       begin
-        Timeout.timeout(3) { wait.call }
+        Timeout.timeout(30) { wait.call }
       rescue Timeout::Error
-        puts "Sending SIGKILL to #{pids} as they did not terminate in 3s after SIGINT"
+        puts "Sending SIGKILL to #{pids} as they did not terminate in 30s after SIGINT"
         kill.call(:SIGKILL)
         wait.call
       end
@@ -384,10 +385,14 @@ module BenchLib
       server_env.with_url_available do
         wrk_script_location = File.join(__dir__, @settings[:wrk_script_location])
         wrk_close_header_opts = @settings[:wrk_close_connection] ? '--header "Connection: Close"' : ""
-        wrk_command = -> mode do
+        wrk_command = -> (mode, iter=nil) do
           command = "#{@settings[:wrk_binary]} -t#{@settings[:wrk_concurrency]} -c#{@settings[:wrk_connections]} -d#{@settings[:"#{mode}_seconds"]}s -s#{wrk_script_location} #{wrk_close_header_opts} --latency #{@settings[:url]}"
           puts "Running command: #{command}"
-          ret = system(command, out: "#{mode}_output_#{@settings[:timestamp]}.txt")
+          if iter
+            ret = system(command, out: "#{mode}_#{iter}_output_#{@settings[:timestamp]}.txt")
+          else
+            ret = system(command, out: "#{mode}_output_#{@settings[:timestamp]}.txt")
+          end
           raise "Couldn't run #{mode} iterations!" unless ret
         end
 
@@ -399,10 +404,15 @@ module BenchLib
           verbose "No warmup iterations..."
         end
 
-        verbose "Starting real benchmark iterations"
-        wrk_command.call(:benchmark)
-
-        # For now this assumes a single-process configuration
+        if @settings[:benchmark_iterations] > 1
+          verbose "Starting real benchmark iterations"
+          (1..(@settings[:benchmark_iterations])).each { |x|
+            wrk_command.call("benchmark", x)
+          }
+        else
+          verbose "Starting real benchmark iterations"
+          wrk_command.call(:benchmark)
+        end
         if @settings[:get_final_mem]
           u = URI(@settings[:url])
           u.path = "/process_mem"
@@ -420,8 +430,18 @@ module BenchLib
         output["requests"]["warmup"] = parse_wrk_into_stats(File.read "warmup_output_#{@settings[:timestamp]}.txt")
         File.unlink "warmup_output_#{@settings[:timestamp]}.txt"
       end
-      output["requests"]["benchmark"] = parse_wrk_into_stats(File.read "benchmark_output_#{@settings[:timestamp]}.txt")
-      File.unlink "benchmark_output_#{@settings[:timestamp]}.txt"
+      if @settings[:benchmark_iterations] > 1
+        output["requests"]["benchmark"] = {}
+        (1..(@settings[:benchmark_iterations])).each { |x|
+            output["requests"]["benchmark"]["#{x}"] = parse_wrk_into_stats(File.read "benchmark_#{x}_output_#{@settings[:timestamp]}.txt")
+
+            File.unlink "benchmark_#{x}_output_#{@settings[:timestamp]}.txt"
+          }
+      else
+        output["requests"]["benchmark"] = parse_wrk_into_stats(File.read "benchmark_output_#{@settings[:timestamp]}.txt")
+
+        File.unlink "benchmark_output_#{@settings[:timestamp]}.txt"
+      end
 
       if @settings[:get_final_mem]
         mem_file = "mem_output_#{@settings[:timestamp]}.txt"
