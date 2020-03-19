@@ -469,7 +469,7 @@ module BenchLib
   end
 
   module OptionsBuilder
-    FRAMEWORKS = [ :rack, :rails ]
+    FRAMEWORKS = [ :rack, :rails, :rails6 ]
     APP_SERVERS = [ :webrick, :puma, :thin, :unicorn, :passenger ]
 
     def options_by_framework_and_server(framework, server, processes: nil, threads: nil)
@@ -621,6 +621,28 @@ UNICORN_CONFIG
     end
 
     def puma_rails_options(processes: 1, threads: 1)
+      worker_opts = processes > 1 ? "-w #{processes}" : ""
+
+      if processes > 1 && RUBY_PLATFORM == "java"
+        raise "Puma's worker mode isn't supported in JRuby, which can't fork processes!"
+      end
+
+      {
+        # Benchmarking options
+        out_file: File.expand_path(File.join(__dir__, "data", "rsb_rails_TIMESTAMP.json")),
+
+        # Server environment options
+        server_cmd: "bundle exec puma -p PORT -t #{threads}:#{threads} #{worker_opts} --tag puma_rsb_rails_#{Process.pid}",
+        server_pre_cmd: "bundle exec rake db:migrate",
+        server_kill_matcher: "puma_rsb_rails_#{Process.pid}",
+
+        extra_gems: [
+          [ "puma", "3.11.4"],
+        ],
+      }
+    end
+
+    def puma_rails6_options(processes: 1, threads: 1)
       worker_opts = processes > 1 ? "-w #{processes}" : ""
 
       if processes > 1 && RUBY_PLATFORM == "java"
@@ -834,6 +856,23 @@ UNICORN_CONFIG
 
       raise "No support for Ruby versions outside 2.0 through 2.7!" unless (0..7).include?(minor)
       [ major, minor, micro, patch, pre ]
+    end
+
+    def cruby_rails6_gemfile_contents(ruby_version, extras = [])
+      major, minor, micro, _ = parse_cruby_version(ruby_version)
+      extra_gems = ""
+      extras.each do |row|
+        g, ver, constraint = *row
+        constraint ||= "= #{ver}" # No constraint? Require it exactly.
+        extra_gems += "gem \"#{g}\", \"#{constraint}\"\n"
+      end
+
+      return <<GEMFILE
+ruby "#{major}.#{minor}.#{micro}"
+#{extra_gems}
+
+eval_gemfile "Gemfile.common"
+GEMFILE
     end
 
     def cruby_rails_gemfile_contents(ruby_version, extras = [])
@@ -1058,6 +1097,228 @@ DEPENDENCIES
   uglifier (>= 1.3.0)
   web-console (~> 2.0)
 #{extra_deps}
+
+RUBY VERSION
+   ruby #{major}.#{minor}.#{micro}#{patch}
+
+BUNDLED WITH
+   1.17.3
+GEMFILE_LOCK
+    end
+
+    def cruby_rails6_gemfile_lock_contents(ruby_version, extra_gems = [])
+      major, minor, micro, patch, _ = parse_cruby_version ruby_version
+
+      extra_deps  = ""
+      extra_specs = ""
+      if minor == 0
+        extra_deps  += "    psych (2.2.4)\n"
+        extra_specs += "  psych (= 2.2.4)\n"
+      end
+      extra_gems.each do |row|
+        g, ver, constraint = *row
+        constraint ||= "= #{ver}"  # No constraint? List it as exact version
+        extra_specs += "    #{g} (#{ver})\n"
+        extra_deps += "  #{g} (#{constraint})\n"
+      end
+
+      return <<GEMFILE_LOCK
+GEM
+  remote: https://rubygems.org/
+  specs:
+    actioncable (6.0.2)
+      actionpack (= 6.0.2)
+      nio4r (~> 2.0)
+      websocket-driver (>= 0.6.1)
+    actionmailbox (6.0.2)
+      actionpack (= 6.0.2)
+      activejob (= 6.0.2)
+      activerecord (= 6.0.2)
+      activestorage (= 6.0.2)
+      activesupport (= 6.0.2)
+      mail (>= 2.7.1)
+    actionmailer (6.0.2)
+      actionpack (= 6.0.2)
+      actionview (= 6.0.2)
+      activejob (= 6.0.2)
+      mail (~> 2.5, >= 2.5.4)
+      rails-dom-testing (~> 2.0)
+    actionpack (6.0.2)
+      actionview (= 6.0.2)
+      activesupport (= 6.0.2)
+      rack (~> 2.0)
+      rack-test (>= 0.6.3)
+      rails-dom-testing (~> 2.0)
+      rails-html-sanitizer (~> 1.0, >= 1.2.0)
+    actiontext (6.0.2)
+      actionpack (= 6.0.2)
+      activerecord (= 6.0.2)
+      activestorage (= 6.0.2)
+      activesupport (= 6.0.2)
+      nokogiri (>= 1.8.5)
+    actionview (6.0.2)
+      activesupport (= 6.0.2)
+      builder (~> 3.1)
+      erubi (~> 1.4)
+      rails-dom-testing (~> 2.0)
+      rails-html-sanitizer (~> 1.1, >= 1.2.0)
+    activejob (6.0.2)
+      activesupport (= 6.0.2)
+      globalid (>= 0.3.6)
+    activemodel (6.0.2)
+      activesupport (= 6.0.2)
+    activerecord (6.0.2)
+      activemodel (= 6.0.2)
+      activesupport (= 6.0.2)
+    activestorage (6.0.2)
+      actionpack (= 6.0.2)
+      activejob (= 6.0.2)
+      activerecord (= 6.0.2)
+      marcel (~> 0.3.1)
+    activesupport (6.0.2)
+      concurrent-ruby (~> 1.0, >= 1.0.2)
+      i18n (>= 0.7, < 2)
+      minitest (~> 5.1)
+      tzinfo (~> 1.1)
+      zeitwerk (~> 2.2)
+    bindex (0.8.1)
+    builder (3.2.4)
+    coffee-rails (5.0.0)
+      coffee-script (>= 2.2.0)
+      railties (>= 5.2.0)
+    coffee-script (2.4.1)
+      coffee-script-source
+      execjs
+    coffee-script-source (1.12.2)
+    concurrent-ruby (1.1.5)
+    crass (1.0.6)
+    erubi (1.9.0)
+    execjs (2.7.0)
+    ffi (1.12.1)
+    get_process_mem (0.2.5)
+      ffi (~> 1.0)
+    globalid (0.4.2)
+      activesupport (>= 4.2.0)
+    i18n (1.8.2)
+      concurrent-ruby (~> 1.0)
+    jbuilder (2.8.0)
+      activesupport (>= 4.2.0)
+      multi_json (>= 1.2)
+    jquery-rails (4.3.3)
+      rails-dom-testing (>= 1, < 3)
+      railties (>= 4.2.0)
+      thor (>= 0.14, < 2.0)
+    json (1.8.6)
+    loofah (2.4.0)
+      crass (~> 1.0.2)
+      nokogiri (>= 1.5.9)
+    mail (2.7.1)
+      mini_mime (>= 0.1.1)
+    marcel (0.3.3)
+      mimemagic (~> 0.3.2)
+    method_source (0.9.2)
+    mimemagic (0.3.3)
+    mini_mime (1.0.2)
+    mini_portile2 (2.4.0)
+    minitest (5.14.0)
+    multi_json (1.13.1)
+    nio4r (2.5.2)
+    nokogiri (1.10.7)
+      mini_portile2 (~> 2.4.0)
+    puma (3.11.4)
+    rack (2.1.1)
+    rack-test (1.1.0)
+      rack (>= 1.0, < 3)
+    rails (6.0.2)
+      actioncable (= 6.0.2)
+      actionmailbox (= 6.0.2)
+      actionmailer (= 6.0.2)
+      actionpack (= 6.0.2)
+      actiontext (= 6.0.2)
+      actionview (= 6.0.2)
+      activejob (= 6.0.2)
+      activemodel (= 6.0.2)
+      activerecord (= 6.0.2)
+      activestorage (= 6.0.2)
+      activesupport (= 6.0.2)
+      bundler (>= 1.3.0)
+      railties (= 6.0.2)
+      sprockets-rails (>= 2.0.0)
+    rails-dom-testing (2.0.3)
+      activesupport (>= 4.2.0)
+      nokogiri (>= 1.6)
+    rails-html-sanitizer (1.3.0)
+      loofah (~> 2.3)
+    railties (6.0.2)
+      actionpack (= 6.0.2)
+      activesupport (= 6.0.2)
+      method_source
+      rake (>= 0.8.7)
+      thor (>= 0.20.3, < 2.0)
+    rake (13.0.1)
+    rdoc (4.3.0)
+    ruby-prof (1.1.0)
+    sass-rails (6.0.0)
+      sassc-rails (~> 2.1, >= 2.1.1)
+    sassc (2.2.1)
+      ffi (~> 1.9)
+    sassc-rails (2.1.2)
+      railties (>= 4.0.0)
+      sassc (>= 2.0)
+      sprockets (> 3.0)
+      sprockets-rails
+      tilt
+    sdoc (0.4.2)
+      json (~> 1.7, >= 1.7.7)
+      rdoc (~> 4.0)
+    spring (2.0.2)
+      activesupport (>= 4.2)
+    sprockets (4.0.0)
+      concurrent-ruby (~> 1.0)
+      rack (> 1, < 3)
+    sprockets-rails (3.2.1)
+      actionpack (>= 4.0)
+      activesupport (>= 4.0)
+      sprockets (>= 3.0.0)
+    sqlite3 (1.4.2)
+    thor (1.0.1)
+    thread_safe (0.3.6)
+    tilt (2.0.10)
+    turbolinks (2.5.4)
+      coffee-rails
+    tzinfo (1.2.6)
+      thread_safe (~> 0.1)
+    uglifier (4.1.20)
+      execjs (>= 0.3.0, < 3)
+    web-console (4.0.1)
+      actionview (>= 6.0.0)
+      activemodel (>= 6.0.0)
+      bindex (>= 0.4.0)
+      railties (>= 6.0.0)
+    websocket-driver (0.7.1)
+      websocket-extensions (>= 0.1.0)
+    websocket-extensions (0.1.4)
+    zeitwerk (2.2.2)
+
+PLATFORMS
+  ruby
+
+DEPENDENCIES
+  activerecord-jdbcsqlite3-adapter
+  coffee-rails (~> 5.0.0)
+  get_process_mem
+  jbuilder (~> 2.0)
+  jquery-rails
+  puma (= 3.11.4)
+  rails (= 6.0.2)
+  ruby-prof
+  sass-rails (~> 6.0)
+  sdoc (~> 0.4.0)
+  spring
+  sqlite3 (~> 1.3.6)
+  turbolinks (= 2.5.4)
+  uglifier (>= 1.3.0)
+  web-console (~> 4.0)
 
 RUBY VERSION
    ruby #{major}.#{minor}.#{micro}#{patch}
