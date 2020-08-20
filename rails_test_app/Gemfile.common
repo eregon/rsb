@@ -13,7 +13,7 @@ gem 'rails', '4.2.11'
 
 # Use sqlite3 as the database for Active Record
 gem 'sqlite3', '~>1.3.6', :platform => :ruby
-gem 'activerecord-jdbcsqlite3-adapter', :platform => :jruby
+gem 'activerecord-jdbcsqlite3-adapter', '~>1.3.0', :platform => :jruby
 
 # Use SCSS for stylesheets
 gem 'sass-rails', '~> 5.0'
