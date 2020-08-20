@@ -479,8 +479,8 @@ module BenchLib
       raise "No such framework as #{framework.inspect} (only :rails and :rack)!" unless FRAMEWORKS.include?(framework)
       raise "No such app server as #{server.inspect} (options: #{APP_SERVERS.inspect})!" unless APP_SERVERS.include?(server)
 
-      threads ||= (ENV["RSB_THREADS"] || 1)
-      processes ||= (ENV["RSB_PROCESSES"] || 1)
+      threads ||= Integer(ENV["RSB_THREADS"] || 1)
+      processes ||= Integer(ENV["RSB_PROCESSES"] || 1)
 
       # This is okay (only) because we've already validated that
       # framework and server are one of a short list of known items.
