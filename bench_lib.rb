@@ -388,6 +388,9 @@ module BenchLib
         wrk_command = -> (mode, iter=nil) do
           command = "#{@settings[:wrk_binary]} -t#{@settings[:wrk_concurrency]} -c#{@settings[:wrk_connections]} -d#{@settings[:"#{mode}_seconds"]}s -s#{wrk_script_location} #{wrk_close_header_opts} --latency #{@settings[:url]}"
           puts "Running command: #{command}"
+          if ENV["MANUAL_WRK"]
+            puts "Letting the user run it"; sleep
+          end
           if iter
             ret = system(command, out: "#{mode}_#{iter}_output_#{@settings[:timestamp]}.txt")
           else
