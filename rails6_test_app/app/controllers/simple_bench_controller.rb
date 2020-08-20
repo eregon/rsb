@@ -1,18 +1,18 @@
 class SimpleBenchController < ApplicationController
   def static
-    render :text => "Static Text"
+    render :plain => "Static Text"
   end
 
   def mandelbrot
     z0 = Complex(params["x"].to_f, params["i"].to_f)
     z = z0
     80.times { z = z * z0 }
-    render :text => (z.abs <= 2.0 ? "in" : "out")
+    render :plain => (z.abs <= 2.0 ? "in" : "out")
   end
 
   def db
     # TBD
-    render :text => "For now, static"
+    render :plain => "For now, static"
   end
 
   def fivehundred
@@ -22,7 +22,7 @@ class SimpleBenchController < ApplicationController
   def delay
     t = params[:time].to_f || 0.001
     sleep t
-    render :text => "Static Text"
+    render :plain => "Static Text"
   end
 
   # Keep in mind that this route only does what you think for single-process setups,
@@ -35,6 +35,6 @@ class SimpleBenchController < ApplicationController
   # will allow you to get the memory usage.
   def process_mem
     mem = GetProcessMem.new
-    render :text => "Process memory in bytes: #{mem.bytes.to_i}"
+    render :plain => "Process memory in bytes: #{mem.bytes.to_i}"
   end
 end
