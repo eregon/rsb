@@ -399,6 +399,14 @@ module BenchLib
           raise "Couldn't run #{mode} iterations!" unless ret
         end
 
+        total_time = @settings[:warmup_seconds] + @settings[:benchmark_seconds]
+        wrk_close_header_opts_ary = @settings[:wrk_close_connection] ? ['--header', "Connection: Close"] : []
+        duration = 10
+        (total_time / duration).times do
+          system @settings[:wrk_binary], "-t#{@settings[:wrk_concurrency]}", "-c#{@settings[:wrk_connections]}", "-d#{duration}s", *wrk_close_header_opts_ary, @settings[:url]
+        end
+        break
+
         # Warmup iterations first, if there are any
         if @settings[:warmup_seconds] > 0
           verbose "Starting warmup iterations"
