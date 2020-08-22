@@ -28,12 +28,34 @@ class SpeedTest
       sleep t
       [ 200, HEADERS, [ "Static Text" ] ]
     },
+    "/erb" => proc { |env|
+      [ 200, HEADERS, [ SpeedTest.erb_template ] ]
+    },
     # Not yet: /db
     "/process_mem" => proc { [ 200, HEADERS, [ "Process memory in bytes: #{GetProcessMem.new.bytes.to_i}" ] ] },
 
     # In multiprocess configurations, this only shuts down a single worker. That's probably not what you want.
     "/shutdown" => proc { exit 0 },
   }
+
+  require 'erb'
+  TEMPLATE = ERB.new(<<erb)
+<html>
+  <head> <%= title %> </head>
+  <body>
+    <h1> <%= title %> </h1>
+    <p>
+      <%= content %>
+    </p>
+  </body>
+</html>
+erb
+
+  def self.erb_template
+    title = 'hello world!'
+    content = "hello world!\n" * 10
+    TEMPLATE.result(binding)
+  end
 
   def self.in_mandelbrot(x, i)
     z0 = Complex(x, i)
